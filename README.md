@@ -1,0 +1,2 @@
+# LogController
+Log Controller
