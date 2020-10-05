@@ -3,6 +3,7 @@ name: Build and package logger
 on:
   push:
     branches:
+    - master
   pull_request:
     branches:
     - master
@@ -27,17 +28,17 @@ jobs:
       run: |
         go version
         go get -u golang.org/x/lint/golint
-        
-    # Run build of the application
-    - name: Run build
-      run: go build . 
       
     # Run vet & lint on the code
     - name: Run vet & lint
       run: |
         go vet .
         golint .
-    
+        
+    # Run build of the application
+    - name: Run build
+      run: go build . 
+      
     # Run testing on the code
     - name: Run testing
       run: go test -v
