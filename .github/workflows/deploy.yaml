@@ -38,8 +38,8 @@ jobs:
     # Run build of the application
     - name: Run build
       run: |
-        mkdir -p path/to/artifact
-        go build . -o /tmp/build/logger
+        mkdir -p /tmp/build
+        go build -o /tmp/build/logger
       
     # Run testing on the code
     - name: Run testing
