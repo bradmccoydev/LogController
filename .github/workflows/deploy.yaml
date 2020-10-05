@@ -3,7 +3,7 @@ name: Build and package logger
 on:
   push:
     branches:
-    - master
+#    - master
   pull_request:
     branches:
     - master
@@ -37,7 +37,9 @@ jobs:
         
     # Run build of the application
     - name: Run build
-      run: go build . 
+      run: |
+        mkdir -p path/to/artifact
+        go build . -o /tmp/build/logger
       
     # Run testing on the code
     - name: Run testing
