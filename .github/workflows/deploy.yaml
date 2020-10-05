@@ -1,12 +1,8 @@
 name: Deploy
-
-# Triggers the workflow on pull requests to the master branch
 on: 
     pull_request: 
       branches: 
       — master 
-
-# The workflow jobs 
 jobs:
 
     # Build Job
