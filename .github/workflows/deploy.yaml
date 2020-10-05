@@ -38,8 +38,9 @@ jobs:
     # Run build of the application
     - name: Run build
       run: |
-        mkdir -p /tmp/build
-        go build -o /tmp/build/logger
+        mkdir -p /tmp/bin
+        go build -o /tmp/bin/logger
+        zip -vr /tmp/logger.zip /tmp/bin/*
       
     # Run testing on the code
     - name: Run testing
