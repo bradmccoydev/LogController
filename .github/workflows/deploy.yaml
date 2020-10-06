@@ -19,7 +19,8 @@ jobs:
     env:
       build-file: 'logger'
       build-dir: '${{ github.workspace }}/bin'
-      build-filepath: '${{ env.build-dir }}/${{ build-file }}'
+    
+    # Build steps
     steps:
     - uses: actions/checkout@v2
     
@@ -45,7 +46,7 @@ jobs:
     - name: Run build
       run: |
         mkdir -p ${{ env.build-dir }}
-        go build -o ${{ env.build-filepath }}
+        go build -o '${{ env.build-dir }}/${{ build-file }}'
         zip -vr /tmp/logger.zip /tmp/bin/*
       
     # Run testing on the code
