@@ -50,13 +50,14 @@ jobs:
         echo 'Build file: ${{ env.build-dir }}/${{ env.build-file }}'
         mkdir -p ${{ env.build-dir }}
         go build -o '${{ env.build-dir }}/${{ env.build-file }}'
+        ls -al ${{ env.build-dir }}
         
     # Zip build binary
     - name: Zip build
       run: |
         echo 'Zip file: ${{ env.zip-dir }}/${{ env.zip-file }}'
         mkdir -p ${{ env.zip-dir }}
-        zip -vr '${{ env.zip-dir }}/${{ env.zip-file }} ${{ env.build-dir }}/${{ env.build-file }}'
+        zip -vr '${{ env.zip-dir }}/${{ env.zip-file }} ${{ env.build-dir }}/*'
       
     # Run testing on the code
     - name: Run testing
