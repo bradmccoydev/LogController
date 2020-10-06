@@ -26,6 +26,13 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
+    # Log basic info
+    - name: Log git event info
+      run: |
+        echo Event: ${{ github.event_name }}
+        echo Git Ref: ${{ github.ref }}
+        echo Git SHA: ${{ github.sha }}
+    
     # Setup Go
     - name: Setup Go
       uses: actions/setup-go@v2
