@@ -58,6 +58,13 @@ jobs:
         zip -r ${{ env.zip-dir }}/${{ env.zip-file }} ${{ env.build-dir }}/
         ls -al ${{ env.zip-dir }}
       
-    # Run testing on the code
-    - name: Run testing
+    # Run any test cases
+    - name: Run test cases
       run: go test -v
+      
+    # Upload artefact
+    - name: Upload zip artefact
+      uses: actions/upload-artifact@v2
+      with:
+        name: Logger Zip
+        path: ${{ env.zip-dir }}/${{ env.zip-file }}
