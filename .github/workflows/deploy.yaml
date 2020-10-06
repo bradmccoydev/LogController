@@ -1,14 +1,5 @@
-name: Build and package logger
-
-on:
-  push:
-#     branches:
-# #    - master
-#   pull_request:
-#     branches:
-#     - master
-#     - develop
-
+name: Build and package log controller
+on: push
 jobs:
 
   # Build the source
