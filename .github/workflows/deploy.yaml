@@ -2,12 +2,12 @@ name: Build and package logger
 
 on:
   push:
-    branches:
-#    - master
-  pull_request:
-    branches:
-    - master
-    - develop
+#     branches:
+# #    - master
+#   pull_request:
+#     branches:
+#     - master
+#     - develop
 
 jobs:
 
@@ -78,7 +78,7 @@ jobs:
       
     # Create release
     - name: Create release
-      if: github.ref == 'refs/heads/issue/1'
+      if: github.ref == 'refs/heads/master'
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
