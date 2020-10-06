@@ -19,7 +19,7 @@ jobs:
     env:
       build-file: 'logger'
       build-dir: '${{ github.workspace }}/bin'
-      build-file: 'logger.zip'
+      zip-file: 'logger.zip'
       zip-dir: '${{ github.workspace }}/zip'
     
     # Build steps
