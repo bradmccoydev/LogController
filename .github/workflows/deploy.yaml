@@ -1,21 +1,28 @@
-name: Build and package logger
-
-on:
-  push:
-    branches:
-    - master
-  pull_request:
-    branches:
-    - master
-    - develop
-
+name: Build and package log controller
+on: push
 jobs:
 
   # Build the source
   build:
     runs-on: ubuntu-latest
+    
+    # Variables for the build job
+    env:
+      build-file: 'logger'
+      build-dir: '${{ github.workspace }}/bin'
+      zip-file: 'logger.zip'
+      zip-dir: '${{ github.workspace }}/zip'
+    
+    # Build steps
     steps:
     - uses: actions/checkout@v2
+    
+    # Log basic info
+    - name: Log git event info
+      run: |
+        echo Event: ${{ github.event_name }}
+        echo Git Ref: ${{ github.ref }}
+        echo Git SHA: ${{ github.sha }}
     
     # Setup Go
     - name: Setup Go
@@ -35,28 +42,38 @@ jobs:
         go vet .
         golint .
         
-    # Run build of the application
+    # Run go build 
     - name: Run build
-      run: go build . 
+      run: |
+        mkdir -p ${{ env.build-dir }}
+        go build -o ${{ env.build-dir }}/${{ env.build-file }}
+        ls -al ${{ env.build-dir }}
+        
+    # Zip build binary
+    - name: Zip build
+      run: |
+        mkdir -p ${{ env.zip-dir }}
+        zip -r ${{ env.zip-dir }}/${{ env.zip-file }} ${{ env.build-dir }}/
+        ls -al ${{ env.zip-dir }}
       
-    # Run testing on the code
-    - name: Run testing
+    # Run any test cases
+    - name: Run test cases
       run: go test -v
-    
-#   # The "deploy" workflow
-#   deploy:
-#     # The type of runner that the job will run on
-#     runs-on: ubuntu-latest
-#     needs: [build] # Only run this workflow when "build" workflow succeeds
-#     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push' }} # Only run this workflow if it is master branch on push event
-#     steps:
-#     - uses: actions/checkout@v2
-
-#     # Deploy to Docker registry
-#     - name: Deploy to Docker registry
-#       uses: docker/build-push-action@v1
-#       with:
-#         username: ${{ secrets.DOCKER_USERNAME }}
-#         password: ${{ secrets.DOCKER_PASSWORD }}
-#         repository: wilsontanwm/gosimple
-#         tag_with_ref: true
+      
+    # Upload artefact
+    - name: Upload zip artefact
+      uses: actions/upload-artifact@v2
+      with:
+        name: Logger Zip
+        path: ${{ env.zip-dir }}/${{ env.zip-file }}
+      
+    # Create release
+    - name: Create release
+      if: github.ref == 'refs/heads/master'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: true
