@@ -55,7 +55,8 @@ jobs:
     - name: Zip build
       run: |
         mkdir -p ${{ env.zip-dir }}
-        zip -r ${{ env.zip-dir }}/${{ env.zip-file }} '${{ env.build-dir }}/'
+        zip -r ${{ env.zip-dir }}/${{ env.zip-file }} ${{ env.build-dir }}/
+        ls -al ${{ env.zip-dir }}
       
     # Run testing on the code
     - name: Run testing
