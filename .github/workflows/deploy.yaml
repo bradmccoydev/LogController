@@ -46,7 +46,7 @@ jobs:
     - name: Run build
       run: |
         mkdir -p ${{ env.build-dir }}
-        go build -o '${{ env.build-dir }}/${{ build-file }}'
+        go build -o '${{ env.build-dir }}/${{ env.build-file }}'
         zip -vr /tmp/logger.zip /tmp/bin/*
       
     # Run testing on the code
