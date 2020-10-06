@@ -70,8 +70,8 @@ jobs:
         path: ${{ env.zip-dir }}/${{ env.zip-file }}
       
     # Create release
+    if: {{ github.ref == 'ref/head/master' }}
     - name: Create release
-      if: {{ github.ref == 'ref/head/master' }}
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
