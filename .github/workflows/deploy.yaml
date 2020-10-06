@@ -19,6 +19,8 @@ jobs:
     env:
       build-file: 'logger'
       build-dir: '${{ github.workspace }}/bin'
+      build-file: 'logger.zip'
+      zip-dir: '${{ github.workspace }}/zip'
     
     # Build steps
     steps:
@@ -42,12 +44,19 @@ jobs:
         go vet .
         golint .
         
-    # Run build of the application
+    # Run go build 
     - name: Run build
       run: |
+        echo 'Build file: ${{ env.build-dir }}/${{ env.build-file }}'
         mkdir -p ${{ env.build-dir }}
         go build -o '${{ env.build-dir }}/${{ env.build-file }}'
-        zip -vr /tmp/logger.zip /tmp/bin/*
+        
+    # Zip build binary
+    - name: Zip build
+      run: |
+        echo 'Zip file: ${{ env.zip-dir }}/${{ env.zip-file }}'
+        mkdir -p ${{ env.zip-dir }}
+        zip -vr '${{ env.zip-dir }}/${{ env.zip-file }} ${{ env.build-dir }}/${{ env.build-file }}'
       
     # Run testing on the code
     - name: Run testing
