@@ -1,0 +1,79 @@
+name: Build and package log controller
+on: push
+jobs:
+
+  # Build the source
+  build:
+    runs-on: ubuntu-latest
+    
+    # Variables for the build job
+    env:
+      build-file: 'logger'
+      build-dir: '${{ github.workspace }}/bin'
+      zip-file: 'logger.zip'
+      zip-dir: '${{ github.workspace }}/zip'
+    
+    # Build steps
+    steps:
+    - uses: actions/checkout@v2
+    
+    # Log basic info
+    - name: Log git event info
+      run: |
+        echo Event: ${{ github.event_name }}
+        echo Git Ref: ${{ github.ref }}
+        echo Git SHA: ${{ github.sha }}
+    
+    # Setup Go
+    - name: Setup Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: '1.15.0' 
+    
+    # Install all the dependencies
+    - name: Install dependencies
+      run: |
+        go version
+        go get -u golang.org/x/lint/golint
+      
+    # Run vet & lint on the code
+    - name: Run vet & lint
+      run: |
+        go vet .
+        golint .
+        
+    # Run go build 
+    - name: Run build
+      run: |
+        mkdir -p ${{ env.build-dir }}
+        go build -o ${{ env.build-dir }}/${{ env.build-file }}
+        ls -al ${{ env.build-dir }}
+        
+    # Zip build binary
+    - name: Zip build
+      run: |
+        mkdir -p ${{ env.zip-dir }}
+        zip -r ${{ env.zip-dir }}/${{ env.zip-file }} ${{ env.build-dir }}/
+        ls -al ${{ env.zip-dir }}
+      
+    # Run any test cases
+    - name: Run test cases
+      run: go test -v
+      
+    # Upload artefact
+    - name: Upload zip artefact
+      uses: actions/upload-artifact@v2
+      with:
+        name: Logger Zip
+        path: ${{ env.zip-dir }}/${{ env.zip-file }}
+      
+    # Create release
+    - name: Create release
+      if: github.ref == 'refs/heads/master'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: true
