@@ -69,7 +69,8 @@ jobs:
       
     # Create release
     - name: Create release
-      if: github.ref == 'refs/heads/master'
+      id: create_release
+      if: github.ref == 'refs/heads/main'
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -77,3 +78,16 @@ jobs:
         tag_name: ${{ github.ref }}
         release_name: Release ${{ github.ref }}
         draft: true
+      
+    # Upload release asset
+    - name: Upload release asset
+      id: upload-release-asset
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ env.zip-dir }}/${{ env.zip-file }}
+        asset_name: ${{ env.zip-file }}
+        asset_content_type: application/zip
