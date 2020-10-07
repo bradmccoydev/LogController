@@ -1,3 +1,10 @@
+#######################################################
+# This workflow deletes any workflow artefacts that 
+# are older than 1 day. This workflow gets triggered 
+# by the cron schedule.
+#
+#######################################################
+
 name: Cleanup old artefacts
 
 on:

@@ -1,12 +1,29 @@
-name: Perform build and release
-on:
+#######################################################
+# This workflow builds the log controller. This
+# workflow should only be triggered on a push to
+# the develop branch (eg pull request from a feature)
+# branch. It performs the following tasks:
+#
+#    - log the git branch/commit details
+#    - install Go v1.15
+#    - run go vet/lint
+#    - install CodeQL
+#    - compile the code
+#    - run CodeQL analysis
+#    - zip the compiled binary
+#    - run any go test cases
+#    - upload the zip as a workflow artefact
+#
+#######################################################
+
+name: Perform build
+on: 
   push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+    branches:
+      - develop
 
 jobs:
   build:
-    if: github.event.base_ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     
     # Variables for the build job
@@ -50,7 +67,7 @@ jobs:
       uses: github/codeql-action/init@v1
       with:
         languages: go
-        
+
     # Run go build 
     - name: Run build
       run: |
@@ -61,7 +78,7 @@ jobs:
     # Run CodeQL analysis
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
-        
+
     # Zip build binary
     - name: Zip build
       run: |
@@ -79,27 +96,3 @@ jobs:
       with:
         name: Logger Zip
         path: ${{ env.zip-dir }}/${{ env.zip-file }}
-      
-    # Create release
-    - name: Create release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
-      
-    # Upload release asset
-    - name: Upload release asset
-      id: upload-release-asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ env.zip-dir }}/${{ env.zip-file }}
-        asset_name: ${{ env.zip-file }}
-        asset_content_type: application/zip
