@@ -79,7 +79,7 @@ jobs:
       with:
         tag_name: ${{ github.ref }}
         release_name: Release ${{ github.ref }}
-        draft: true
+        draft: false
         prerelease: false
       
     # Upload release asset
@@ -93,12 +93,3 @@ jobs:
         asset_path: ${{ env.zip-dir }}/${{ env.zip-file }}
         asset_name: ${{ env.zip-file }}
         asset_content_type: application/zip
-      
-    # Publish release
-    - name: Publish release
-      id: publish-release
-      uses: eregon/publish-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        release_id: ${{ steps.create_release.outputs.id }}
