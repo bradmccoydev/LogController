@@ -1,11 +1,31 @@
-name: Perform build
-on: 
+#######################################################
+# This workflow builds the log controller & creates 
+# a new release. This workflow should only be
+# triggered on a push to the main branch of a tag.
+# It performs the following tasks:
+#
+#    - log the git branch/commit details
+#    - install Go v1.15
+#    - run go vet/lint
+#    - install CodeQL
+#    - compile the code
+#    - run CodeQL analysis
+#    - zip the compiled binary
+#    - run any go test cases
+#    - create a new release
+#    - upload the zip to the release
+#
+#######################################################
+
+name: Create release
+on:
   push:
-    branches:
-      - develop
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   build:
+    if: github.event.base_ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     
     # Variables for the build job
@@ -49,7 +69,7 @@ jobs:
       uses: github/codeql-action/init@v1
       with:
         languages: go
-
+        
     # Run go build 
     - name: Run build
       run: |
@@ -60,7 +80,7 @@ jobs:
     # Run CodeQL analysis
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
-
+        
     # Zip build binary
     - name: Zip build
       run: |
@@ -72,9 +92,26 @@ jobs:
     - name: Run test cases
       run: go test -v
       
-    # Upload artefact
-    - name: Upload zip artefact
-      uses: actions/upload-artifact@v2
+    # Create release
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: Logger Zip
-        path: ${{ env.zip-dir }}/${{ env.zip-file }}
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+      
+    # Upload release asset
+    - name: Upload release asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ env.zip-dir }}/${{ env.zip-file }}
+        asset_name: ${{ env.zip-file }}
+        asset_content_type: application/zip
