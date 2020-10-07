@@ -44,6 +44,12 @@ jobs:
         go vet .
         golint .
         
+    # Setup CodeQL
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+        languages: go
+
     # Run go build 
     - name: Run build
       run: |
@@ -51,6 +57,10 @@ jobs:
         go build -o ${{ env.build-dir }}/${{ env.build-file }}
         ls -al ${{ env.build-dir }}
         
+    # Run CodeQL analysis
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v1
+
     # Zip build binary
     - name: Zip build
       run: |
