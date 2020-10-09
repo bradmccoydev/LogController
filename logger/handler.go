@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-lambda-go/events"
 )
@@ -51,21 +52,33 @@ func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
 		procname, err := getQueueName(h, msg)
 		if err != nil {
 
-			// Log to Cloudwatch then skip
+			// Log details
+			fmt.Printf("Unable to determine queue for message ID: %v. Skipping", msg.MessageId)
+			fmt.Println("Error reported: ", err)
+
+			// Skip from processing
+			continue
 		}
 
 		// Send the message to the processor
 		err = submitMessage(h, msg, procname)
 		if err != nil {
 
-			// Log to Cloudwatch then skip
+			// Log details
+			fmt.Printf("Unable to submit message to queue: %v for message ID: %v. Skipping", procname, msg.MessageId)
+			fmt.Println("Error reported: ", err)
+
+			// Skip from processing
+			continue
 		}
 
 		// Delete the message
 		err = deleteMessage(h, msg)
 		if err != nil {
 
-			// Log to Cloudwatch
+			// Log details
+			fmt.Printf("Unable to delete message ID: %v.", msg.MessageId)
+			fmt.Println("Error reported: ", err)
 		}
 	}
 
@@ -76,8 +89,13 @@ func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
 // getQueueName - queries DynamoDB to retrieve the downstream queue name to use
 func getQueueName(h *Handler, msg events.SQSMessage) (string, error) {
 
-	// Get the application key details
+	// Grab the message attributes
 	msgattribs := msg.MessageAttributes
+	if msgattribs == nil {
+		return "", newErrorMessageAttributesNil()
+	}
+
+	// Get the application version details
 	logapp := *msgattribs[messageAttribAppName].StringValue
 	logvers := *msgattribs[messageAttribAppVers].StringValue
 

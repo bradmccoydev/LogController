@@ -2,8 +2,8 @@ package logger
 
 import "errors"
 
-func newErrorCreatingSession() error {
-	return errors.New("Unable to create a session")
+func newErrorMessageAttributesNil() error {
+	return errors.New("No SQS message attributes provided")
 }
 
 func newErrorUnableToFindAppVersion() error {

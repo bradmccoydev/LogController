@@ -66,7 +66,15 @@ func TestMain(m *testing.M) {
 // Test Handler
 func TestHandler(t *testing.T) {
 
-	// Setup test data
+	// Setup simple log message
+	msgNoAttribs := events.SQSMessage{
+		MessageId:     "12345",
+		ReceiptHandle: "Fred12345",
+		Body:          "blah blah blah",
+	}
+	recordsNoAttribs := []events.SQSMessage{msgNoAttribs}
+
+	// Setup test cases
 	tests := []struct {
 		scenario      string
 		request       events.SQSEvent
@@ -77,6 +85,13 @@ func TestHandler(t *testing.T) {
 		{
 			scenario:      "No data",
 			request:       events.SQSEvent{},
+			sqs:           &mockSQS{},
+			ddb:           &mockDynamoDB{},
+			errorExpected: false,
+		},
+		{
+			scenario:      "No message attributes",
+			request:       events.SQSEvent{Records: recordsNoAttribs},
 			sqs:           &mockSQS{},
 			ddb:           &mockDynamoDB{},
 			errorExpected: false,
