@@ -13,10 +13,10 @@ const (
 	applicationTableName string = "application"
 	// Name of the Log Controller SQS queue
 	logControllerQueueName string = "logging_queue.fifo"
-	// Name of the SQS message attribute that stores the application
-	messageAttribAppName string = "APPLICATION_NAME"
-	// Name of the SQS message attribute that stores the application version
-	messageAttribAppVers string = "APPLICATION_VERS"
+	// MessageAttribAppName - SQS message attribute that stores the application
+	MessageAttribAppName string = "APPLICATION_NAME"
+	// MessageAttribAppVers - SQS message attribute that stores the application version
+	MessageAttribAppVers string = "APPLICATION_VERS"
 )
 
 // Handler handles incoming logger requests.
@@ -53,8 +53,9 @@ func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
 		if err != nil {
 
 			// Log details
-			fmt.Printf("Unable to determine queue for message ID: %v. Skipping", msg.MessageId)
+			fmt.Printf("Unable to determine queue for message ID: %v\n", msg.MessageId)
 			fmt.Println("Error reported: ", err)
+			fmt.Println("Skipping further processing of this message")
 
 			// Skip from processing
 			continue
@@ -65,8 +66,9 @@ func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
 		if err != nil {
 
 			// Log details
-			fmt.Printf("Unable to submit message to queue: %v for message ID: %v. Skipping", procname, msg.MessageId)
+			fmt.Printf("Unable to submit message to queue: %v for message ID: %v\n", procname, msg.MessageId)
 			fmt.Println("Error reported: ", err)
+			fmt.Println("Skipping further processing of this message")
 
 			// Skip from processing
 			continue
@@ -77,7 +79,7 @@ func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
 		if err != nil {
 
 			// Log details
-			fmt.Printf("Unable to delete message ID: %v.", msg.MessageId)
+			fmt.Printf("Unable to delete message ID: %v\n", msg.MessageId)
 			fmt.Println("Error reported: ", err)
 		}
 	}
@@ -96,8 +98,14 @@ func getQueueName(h *Handler, msg events.SQSMessage) (string, error) {
 	}
 
 	// Get the application version details
-	logapp := *msgattribs[messageAttribAppName].StringValue
-	logvers := *msgattribs[messageAttribAppVers].StringValue
+	logapp := *msgattribs[MessageAttribAppName].StringValue
+	logvers := *msgattribs[MessageAttribAppVers].StringValue
+	if logapp == "" {
+		return "", newErrorMessageAttributesAppNameEmpty()
+	}
+	if logvers == "" {
+		return "", newErrorMessageAttributesAppVersionEmpty()
+	}
 
 	// Fetch the application record from DynamoDB
 	db := NewDB(h.ddb)

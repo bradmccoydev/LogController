@@ -10,31 +10,31 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/bradmccoydev/LogController/logger"
 )
 
-/*
-*
-*  Mock DynamoDB components
-*
- */
+// Constants
+const (
+	testapp     string = "fred"
+	testappvers string = "1"
+)
+
+// Mock DynamoDB structure
 type mockDynamoDB struct {
 	getIn  *dynamodb.GetItemInput
 	getOut *dynamodb.GetItemOutput
 	err    error
 }
 
+// Mock DynamoDB GetItem
 func (m *mockDynamoDB) GetItem(*dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
-	return nil, m.err
+	return m.getOut, m.err
 }
 
-/*
-*
-*  Mock SQS components
-*
- */
+// Mock SQS structure
 type mockSQS struct {
 	deleteIn  *sqs.DeleteMessageInput
 	deleteOut *sqs.DeleteMessageOutput
@@ -45,14 +45,19 @@ type mockSQS struct {
 	err       error
 }
 
+// Mock SQS DeleteMessage
 func (m *mockSQS) DeleteMessage(*sqs.DeleteMessageInput) (*sqs.DeleteMessageOutput, error) {
-	return nil, m.err
+	return m.deleteOut, m.err
 }
+
+// Mock SQS GetQueueUrl
 func (m *mockSQS) GetQueueUrl(*sqs.GetQueueUrlInput) (*sqs.GetQueueUrlOutput, error) {
-	return nil, m.err
+	return m.getUrlOut, m.err
 }
+
+// Mock SQS SendMessage
 func (m *mockSQS) SendMessage(*sqs.SendMessageInput) (*sqs.SendMessageOutput, error) {
-	return nil, m.err
+	return m.sendOut, m.err
 }
 
 // TestMain routine for controlling setup/destruction for all tests in this package
@@ -66,13 +71,30 @@ func TestMain(m *testing.M) {
 // Test Handler
 func TestHandler(t *testing.T) {
 
-	// Setup simple log message
-	msgNoAttribs := events.SQSMessage{
-		MessageId:     "12345",
-		ReceiptHandle: "Fred12345",
-		Body:          "blah blah blah",
+	// Message without attributes
+	recordNoAttribs := []events.SQSMessage{
+		events.SQSMessage{
+			MessageId:     "12345",
+			ReceiptHandle: "Fred12345",
+			Body:          "blah blah blah",
+		},
 	}
-	recordsNoAttribs := []events.SQSMessage{msgNoAttribs}
+
+	// Message with attributes
+	var attribs map[string]events.SQSMessageAttribute
+	attribs = make(map[string]events.SQSMessageAttribute)
+	appAttrib := events.SQSMessageAttribute{StringValue: aws.String(testapp), DataType: "string"}
+	versAttrib := events.SQSMessageAttribute{StringValue: aws.String(testappvers), DataType: "string"}
+	attribs[logger.MessageAttribAppName] = appAttrib
+	attribs[logger.MessageAttribAppVers] = versAttrib
+	recordWithAttribs := []events.SQSMessage{
+		events.SQSMessage{
+			MessageId:         "12345",
+			ReceiptHandle:     "Fred12345",
+			Body:              "blah blah blah",
+			MessageAttributes: attribs,
+		},
+	}
 
 	// Setup test cases
 	tests := []struct {
@@ -91,9 +113,18 @@ func TestHandler(t *testing.T) {
 		},
 		{
 			scenario:      "No message attributes",
-			request:       events.SQSEvent{Records: recordsNoAttribs},
+			request:       events.SQSEvent{Records: recordNoAttribs},
 			sqs:           &mockSQS{},
 			ddb:           &mockDynamoDB{},
+			errorExpected: false,
+		},
+		{
+			scenario: "With message attributes",
+			request:  events.SQSEvent{Records: recordWithAttribs},
+			sqs:      &mockSQS{},
+			ddb: &mockDynamoDB{
+				getOut: &dynamodb.GetItemOutput{},
+			},
 			errorExpected: false,
 		},
 	}
