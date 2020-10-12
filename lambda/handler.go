@@ -182,7 +182,7 @@ func getQueueName(h *Handler, msg events.SQSMessage) (string, error) {
 		return "", err
 	}
 
-	// Return the processor queue name
+	// Get the processor queue name
 	qname := item.Loghandler
 	if qname == "" {
 		return "", newErrorUnableToFetchProcQueueName()
@@ -206,6 +206,11 @@ func submitMessage(h *Handler, msg events.SQSMessage, queue string) error {
 	url, err := sqsc.lookupURL(queue)
 	if err != nil {
 		return err
+	}
+
+	// Check the processor queue url
+	if url == "" {
+		return newErrorUnableToFetchProcQueueURL()
 	}
 
 	// Debug log
