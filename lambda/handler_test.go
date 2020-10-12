@@ -1,4 +1,4 @@
-package logger_test
+package lambda_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/bradmccoydev/LogController/logger"
+	loglambda "github.com/bradmccoydev/LogController/lambda"
 )
 
 // Constants
@@ -85,8 +85,8 @@ func TestHandler(t *testing.T) {
 	attribs = make(map[string]events.SQSMessageAttribute)
 	appAttrib := events.SQSMessageAttribute{StringValue: aws.String(testapp), DataType: "string"}
 	versAttrib := events.SQSMessageAttribute{StringValue: aws.String(testappvers), DataType: "string"}
-	attribs[logger.MessageAttribAppName] = appAttrib
-	attribs[logger.MessageAttribAppVers] = versAttrib
+	attribs[loglambda.MessageAttribAppName] = appAttrib
+	attribs[loglambda.MessageAttribAppVers] = versAttrib
 	recordWithAttribs := []events.SQSMessage{
 		events.SQSMessage{
 			MessageId:         "12345",
@@ -135,7 +135,7 @@ func TestHandler(t *testing.T) {
 		t.Run(test.scenario, func(t *testing.T) {
 
 			// Run the test
-			h := logger.NewHandler(test.ddb, test.sqs)
+			h := loglambda.NewHandler(test.ddb, test.sqs)
 			err := h.Handle(context.Background(), test.request)
 			if test.errorExpected {
 				hasError(t, err)
