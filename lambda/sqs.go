@@ -1,7 +1,8 @@
-package logger
+package lambda
 
 import (
 	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 )
 
@@ -62,10 +63,11 @@ func (s *SQSHandler) performSend(msg events.SQSMessage, url string) error {
 	var msgAttribVals map[string]*sqs.MessageAttributeValue
 	msgAttribVals = make(map[string]*sqs.MessageAttributeValue)
 	for key, val := range msg.MessageAttributes {
-		var attribVal *sqs.MessageAttributeValue
-		attribVal.SetDataType("String")
-		attribVal.SetStringValue(*val.StringValue)
-		msgAttribVals[key] = attribVal
+		attribVal := sqs.MessageAttributeValue{
+			DataType:    aws.String("String"),
+			StringValue: val.StringValue,
+		}
+		msgAttribVals[key] = &attribVal
 	}
 
 	// Build the params

@@ -1,4 +1,4 @@
-package logger
+package lambda
 
 import (
 	"github.com/aws/aws-sdk-go/aws"
@@ -51,5 +51,5 @@ func (s *DBHandler) performGet(app string, vers string) (Item, error) {
 	err = dynamodbattribute.UnmarshalMap(result.Item, &item)
 
 	// Return
-	return item, newErrorUnableToUnmarshalDBItem()
+	return item, err
 }
