@@ -40,9 +40,9 @@ type Handler struct {
 
 // Item - represents the application table
 type Item struct {
-	application string
-	version     string
-	loghandler  string
+	Application string `json:"application"`
+	Version     string `json:"version"`
+	Loghandler  string `json:"loghandler"`
 }
 
 // NewHandler initializes and returns a new Handler.
@@ -183,7 +183,7 @@ func getQueueName(h *Handler, msg events.SQSMessage) (string, error) {
 	}
 
 	// Return the processor queue name
-	qname := item.loghandler
+	qname := item.Loghandler
 	if qname == "" {
 		return "", newErrorUnableToFetchProcQueueName()
 	}

@@ -96,6 +96,29 @@ func TestHandler(t *testing.T) {
 		},
 	}
 
+	// Response without a log handler queue name
+	respNoQueue := map[string]*dynamodb.AttributeValue{
+		"application": {
+			S: aws.String("fred"),
+		},
+		"version": {
+			S: aws.String("1"),
+		},
+	}
+
+	// Valid response
+	respValid := map[string]*dynamodb.AttributeValue{
+		"application": {
+			S: aws.String("fred"),
+		},
+		"version": {
+			S: aws.String("1"),
+		},
+		"loghandler": {
+			S: aws.String("myhandler"),
+		},
+	}
+
 	// Setup test cases
 	tests := []struct {
 		scenario      string
@@ -119,10 +142,24 @@ func TestHandler(t *testing.T) {
 			errorExpected: false,
 		},
 		{
-			scenario:      "With message attributes",
+			scenario:      "With invalid message attributes",
 			request:       events.SQSEvent{Records: recordWithAttribs},
 			sqs:           &mockSQS{},
 			ddb:           &mockDynamoDB{getOut: &dynamodb.GetItemOutput{}},
+			errorExpected: false,
+		},
+		{
+			scenario:      "With valid message attributes but no queue name",
+			request:       events.SQSEvent{Records: recordWithAttribs},
+			sqs:           &mockSQS{},
+			ddb:           &mockDynamoDB{getOut: &dynamodb.GetItemOutput{Item: respNoQueue}},
+			errorExpected: false,
+		},
+		{
+			scenario:      "With valid message attributes and a queue name",
+			request:       events.SQSEvent{Records: recordWithAttribs},
+			sqs:           &mockSQS{},
+			ddb:           &mockDynamoDB{getOut: &dynamodb.GetItemOutput{Item: respValid}},
 			errorExpected: false,
 		},
 	}
