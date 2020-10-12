@@ -1,4 +1,4 @@
-package logger_test
+package lambda_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/bradmccoydev/LogController/logger"
+	loglambda "github.com/bradmccoydev/LogController/lambda"
 )
 
 // Constants
@@ -85,14 +85,37 @@ func TestHandler(t *testing.T) {
 	attribs = make(map[string]events.SQSMessageAttribute)
 	appAttrib := events.SQSMessageAttribute{StringValue: aws.String(testapp), DataType: "string"}
 	versAttrib := events.SQSMessageAttribute{StringValue: aws.String(testappvers), DataType: "string"}
-	attribs[logger.MessageAttribAppName] = appAttrib
-	attribs[logger.MessageAttribAppVers] = versAttrib
+	attribs[loglambda.MessageAttribAppName] = appAttrib
+	attribs[loglambda.MessageAttribAppVers] = versAttrib
 	recordWithAttribs := []events.SQSMessage{
 		events.SQSMessage{
 			MessageId:         "12345",
 			ReceiptHandle:     "Fred12345",
 			Body:              "blah blah blah",
 			MessageAttributes: attribs,
+		},
+	}
+
+	// Response without a log handler queue name
+	respNoQueue := map[string]*dynamodb.AttributeValue{
+		"application": {
+			S: aws.String("fred"),
+		},
+		"version": {
+			S: aws.String("1"),
+		},
+	}
+
+	// Valid response
+	respValid := map[string]*dynamodb.AttributeValue{
+		"application": {
+			S: aws.String("fred"),
+		},
+		"version": {
+			S: aws.String("1"),
+		},
+		"loghandler": {
+			S: aws.String("myhandler"),
 		},
 	}
 
@@ -119,12 +142,24 @@ func TestHandler(t *testing.T) {
 			errorExpected: false,
 		},
 		{
-			scenario: "With message attributes",
-			request:  events.SQSEvent{Records: recordWithAttribs},
-			sqs:      &mockSQS{},
-			ddb: &mockDynamoDB{
-				getOut: &dynamodb.GetItemOutput{},
-			},
+			scenario:      "Invalid message attributes",
+			request:       events.SQSEvent{Records: recordWithAttribs},
+			sqs:           &mockSQS{},
+			ddb:           &mockDynamoDB{getOut: &dynamodb.GetItemOutput{}},
+			errorExpected: false,
+		},
+		{
+			scenario:      "Valid message attributes but no queue name",
+			request:       events.SQSEvent{Records: recordWithAttribs},
+			sqs:           &mockSQS{},
+			ddb:           &mockDynamoDB{getOut: &dynamodb.GetItemOutput{Item: respNoQueue}},
+			errorExpected: false,
+		},
+		{
+			scenario:      "Valid message attributes and queue name",
+			request:       events.SQSEvent{Records: recordWithAttribs},
+			sqs:           &mockSQS{getUrlOut: &sqs.GetQueueUrlOutput{QueueUrl: aws.String("someurl")}},
+			ddb:           &mockDynamoDB{getOut: &dynamodb.GetItemOutput{Item: respValid}},
 			errorExpected: false,
 		},
 	}
@@ -135,7 +170,7 @@ func TestHandler(t *testing.T) {
 		t.Run(test.scenario, func(t *testing.T) {
 
 			// Run the test
-			h := logger.NewHandler(test.ddb, test.sqs)
+			h := loglambda.NewHandler(test.ddb, test.sqs)
 			err := h.Handle(context.Background(), test.request)
 			if test.errorExpected {
 				hasError(t, err)

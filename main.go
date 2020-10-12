@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/sqs"
-	"github.com/bradmccoydev/LogController/logger"
+	loglambda "github.com/bradmccoydev/LogController/lambda"
 )
 
 var sess *session.Session
@@ -22,7 +22,7 @@ func init() {
 }
 
 func handler(ctx context.Context, sqsEvent events.SQSEvent) error {
-	return logger.NewHandler(ddb, esqs).Handle(ctx, sqsEvent)
+	return loglambda.NewHandler(ddb, esqs).Handle(ctx, sqsEvent)
 }
 
 func main() {
