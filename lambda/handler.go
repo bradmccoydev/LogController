@@ -207,8 +207,6 @@ func submitMessage(h *Handler, msg events.SQSMessage, queue string) error {
 	if err != nil {
 		return err
 	}
-
-	// Check the processor queue url
 	if url == "" {
 		return newErrorUnableToFetchProcQueueURL()
 	}
@@ -232,6 +230,9 @@ func deleteMessage(h *Handler, msg events.SQSMessage) error {
 	url, err := sqsc.lookupURL(logControllerQueueName)
 	if err != nil {
 		return err
+	}
+	if url == "" {
+		return newErrorUnableToFetchControllerQueueURL()
 	}
 
 	// Debug log
