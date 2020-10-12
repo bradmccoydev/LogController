@@ -119,12 +119,10 @@ func TestHandler(t *testing.T) {
 			errorExpected: false,
 		},
 		{
-			scenario: "With message attributes",
-			request:  events.SQSEvent{Records: recordWithAttribs},
-			sqs:      &mockSQS{},
-			ddb: &mockDynamoDB{
-				getOut: &dynamodb.GetItemOutput{},
-			},
+			scenario:      "With message attributes",
+			request:       events.SQSEvent{Records: recordWithAttribs},
+			sqs:           &mockSQS{},
+			ddb:           &mockDynamoDB{getOut: &dynamodb.GetItemOutput{}},
 			errorExpected: false,
 		},
 	}

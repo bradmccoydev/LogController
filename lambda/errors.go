@@ -3,7 +3,7 @@ package lambda
 import "errors"
 
 func newErrorMessageAttributesNil() error {
-	return errors.New("No SQS message attributes provided")
+	return errors.New("No message attributes provided with SQS message")
 }
 
 func newErrorMessageAttributesAppNameEmpty() error {

@@ -68,19 +68,20 @@ func NewHandler(ddb DynamoDBAPI, sqs SQSAPI) *Handler {
 // Handle handles the logger request.
 func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
 
+	// Debug log
+	h.logger.Debug().Msg("Log controller starting processing")
+
 	// What do we have to process?
 	num := len(sqsEvent.Records)
 
 	// Debug log
-	h.logger.Debug().Msg("Log controller starting processing")
+	h.logger.Debug().Int("Number of messages received", num).Msg("")
 
 	// Bail if nothing
 	if num == 0 {
 
 		// Debug log
-		h.logger.Debug().
-			Int("Number of messages received", num).
-			Msg("Completed processing")
+		h.logger.Debug().Msg("Completed processing")
 		return nil
 	}
 
