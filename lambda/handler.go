@@ -158,12 +158,22 @@ func getQueueName(h *Handler, msg events.SQSMessage) (string, error) {
 		return "", newErrorMessageAttributesNil()
 	}
 
-	// Get the application version details
-	logapp := *msgattribs[MessageAttribAppName].StringValue
-	logvers := *msgattribs[MessageAttribAppVers].StringValue
+	// Get the application name
+	val, found := msgattribs[MessageAttribAppName]
+	if !found {
+		return "", newErrorMessageAttributesAppNameEmpty()
+	}
+	logapp := *val.StringValue
 	if logapp == "" {
 		return "", newErrorMessageAttributesAppNameEmpty()
 	}
+
+	// Get the application version
+	val, found = msgattribs[MessageAttribAppVers]
+	if !found {
+		return "", newErrorMessageAttributesAppVersionEmpty()
+	}
+	logvers := *val.StringValue
 	if logvers == "" {
 		return "", newErrorMessageAttributesAppVersionEmpty()
 	}
