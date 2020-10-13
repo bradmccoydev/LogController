@@ -82,8 +82,9 @@ jobs:
     # Zip build binary
     - name: Zip build
       run: |
+        cd ${{ env.build-dir }}
         mkdir -p ${{ env.zip-dir }}
-        zip -jr ${{ env.zip-dir }}/${{ env.zip-file }} ${{ env.build-dir }}/
+        zip -r ${{ env.zip-dir }}/${{ env.zip-file }} ./*
         ls -al ${{ env.zip-dir }}
       
     # Run any test cases
@@ -94,5 +95,5 @@ jobs:
     - name: Upload zip artefact
       uses: actions/upload-artifact@v2
       with:
-        name: Logger Zip
+        name: LogController
         path: ${{ env.zip-dir }}/${{ env.zip-file }}
