@@ -1,8 +1,8 @@
 #######################################################
-# This workflow builds the log controller & creates 
-# a new release. This workflow should only be
-# triggered on a push to the main branch of a tag.
-# It performs the following tasks:
+# This workflow gets triggered by the creation of a
+# new release in Github (eg push of tag). The
+# workflow uploads a tar file containing the binary
+# to the release. It performs the following tasks:
 #
 #    - log the git branch/commit details
 #    - install Go v1.15
@@ -10,30 +10,27 @@
 #    - install CodeQL
 #    - compile the code
 #    - run CodeQL analysis
-#    - zip the compiled binary
+#    - tar the compiled binary
 #    - run any go test cases
-#    - create a new release
-#    - upload the zip to the release
+#    - upload the tar file to the release
 #
 #######################################################
 
 name: Create release
 on:
-  push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+  release:
+    types: [created]
 
 jobs:
   build:
-    if: github.event.base_ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     
     # Variables for the build job
     env:
       build-file: 'logger'
       build-dir: '${{ github.workspace }}/bin'
-      zip-file: 'logger.zip'
-      zip-dir: '${{ github.workspace }}/zip'
+      tar-file: 'logger.tar'
+      tar-dir: '${{ github.workspace }}/tar'
     
     # Build steps
     steps:
@@ -80,29 +77,18 @@ jobs:
     # Run CodeQL analysis
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
-        
-    # Zip build binary
-    - name: Zip build
+
+    # Tar build binary
+    - name: Tar build
       run: |
-        mkdir -p ${{ env.zip-dir }}
-        zip -r ${{ env.zip-dir }}/${{ env.zip-file }} ${{ env.build-dir }}/
-        ls -al ${{ env.zip-dir }}
-      
+        cd ${{ env.build-dir }}
+        mkdir -p ${{ env.tar-dir }}
+        tar -cvf ${{ env.tar-dir }}/${{ env.tar-file }} ./${{ env.build-file }}
+        ls -al ${{ env.tar-dir }}
+
     # Run any test cases
     - name: Run test cases
       run: go test ./... -v
-      
-    # Create release
-    - name: Create release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
       
     # Upload release asset
     - name: Upload release asset
@@ -111,7 +97,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ env.zip-dir }}/${{ env.zip-file }}
-        asset_name: ${{ env.zip-file }}
-        asset_content_type: application/zip
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ env.tar-dir }}/${{ env.tar-file }}
+        asset_name: ${{ env.tar-file }}
+        asset_content_type: application/x-tar
