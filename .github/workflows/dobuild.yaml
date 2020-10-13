@@ -79,13 +79,13 @@ jobs:
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
 
-    # Zip build binary
-    - name: Zip build
-      run: |
-        cd ${{ env.build-dir }}
-        mkdir -p ${{ env.zip-dir }}
-        zip -r ${{ env.zip-dir }}/${{ env.zip-file }} ./*
-        ls -al ${{ env.zip-dir }}
+    # # Zip build binary
+    # - name: Zip build
+    #   run: |
+    #     cd ${{ env.build-dir }}
+    #     mkdir -p ${{ env.zip-dir }}
+    #     zip -r ${{ env.zip-dir }}/${{ env.zip-file }} ./*
+    #     ls -al ${{ env.zip-dir }}
       
     # Run any test cases
     - name: Run test cases
@@ -96,4 +96,5 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: LogController
-        path: ${{ env.zip-dir }}/${{ env.zip-file }}
+        path: ${{ env.build-dir }}/${{ env.build-file }}
+        # path: ${{ env.zip-dir }}/${{ env.zip-file }}
