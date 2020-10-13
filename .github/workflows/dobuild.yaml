@@ -10,9 +10,9 @@
 #    - install CodeQL
 #    - compile the code
 #    - run CodeQL analysis
-#    - zip the compiled binary
+#    - tar the compiled binary
 #    - run any go test cases
-#    - upload the zip as a workflow artefact
+#    - upload the tar file as a workflow artefact
 #
 #######################################################
 
@@ -30,8 +30,8 @@ jobs:
     env:
       build-file: 'logger'
       build-dir: '${{ github.workspace }}/bin'
-      zip-file: 'logger.zip'
-      zip-dir: '${{ github.workspace }}/zip'
+      tar-file: 'logger.tar'
+      tar-dir: '${{ github.workspace }}/tar'
     
     # Build steps
     steps:
@@ -79,20 +79,21 @@ jobs:
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
 
-    # Zip build binary
-    - name: Zip build
+    # Tar build binary
+    - name: Tar build
       run: |
-        mkdir -p ${{ env.zip-dir }}
-        zip -jr ${{ env.zip-dir }}/${{ env.zip-file }} ${{ env.build-dir }}/
-        ls -al ${{ env.zip-dir }}
+        cd ${{ env.build-dir }}
+        mkdir -p ${{ env.tar-dir }}
+        tar -cvf ${{ env.tar-dir }}/${{ env.tar-file }} ./${{ env.build-file }}
+        ls -al ${{ env.tar-dir }}
       
     # Run any test cases
     - name: Run test cases
       run: go test ./... -v
       
     # Upload artefact
-    - name: Upload zip artefact
+    - name: Upload tar artefact
       uses: actions/upload-artifact@v2
       with:
-        name: Logger Zip
-        path: ${{ env.zip-dir }}/${{ env.zip-file }}
+        name: LogController
+        path: ${{ env.tar-dir }}/${{ env.tar-file }}
