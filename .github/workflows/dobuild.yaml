@@ -1,8 +1,7 @@
 #######################################################
-# This workflow builds the log controller. This
-# workflow should only be triggered on a push to
-# the develop branch (eg pull request from a feature)
-# branch. It performs the following tasks:
+# This workflow gets triggered when a push to the
+# main branch occurs (eg pull request from a feature). 
+# It performs the following tasks:
 #
 #    - log the git branch/commit details
 #    - install Go v1.15
@@ -20,7 +19,7 @@ name: Perform build
 on: 
   push:
     branches:
-      - develop
+      - main
 
 jobs:
   build:

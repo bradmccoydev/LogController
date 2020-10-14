@@ -14,6 +14,18 @@ const (
 	// Name of the "Application" table in DynamoDB
 	applicationTableName string = "application"
 
+	// Name of the Lambda environment variable for logging level
+	envNameLogLevel string = "LOG_LEVEL"
+
+	// Name of the Lambda environment variable for the S3 bucket to use
+	envNameS3Bucket string = "BUCKET"
+
+	// Name of the Lambda environment variable for the path in the S3 bucket to use
+	envNameS3BucketPath string = "PATH"
+
+	// Name of the Lambda environment variable for the region of the S3 bucket to use
+	envNameS3BucketRegion string = "REGION"
+
 	// Name of the Log Controller SQS queue
 	logControllerQueueName string = "logging_queue.fifo"
 
@@ -53,7 +65,7 @@ func NewHandler(ddb DynamoDBAPI, sqs SQSAPI) *Handler {
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 
 	// Handle logging level
-	loglevel := os.Getenv("LogLevel")
+	loglevel := os.Getenv(envNameLogLevel)
 	switch strings.ToUpper(loglevel) {
 	case LogLevelDebug:
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
