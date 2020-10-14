@@ -38,10 +38,12 @@ jobs:
     
     # Log basic info
     - name: Log git event info
+      id: basic_info
       run: |
         echo Event: ${{ github.event_name }}
         echo Git Ref: ${{ github.ref }}
         echo Git SHA: ${{ github.sha }}
+        echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
     
     # Setup Go
     - name: Setup Go
@@ -99,5 +101,5 @@ jobs:
       with:
         upload_url: ${{ github.event.release.upload_url }}
         asset_path: ${{ env.tar-dir }}/${{ env.tar-file }}
-        asset_name: ${{ env.tar-file }}
+        asset_name: LogController-${{ steps.basic_info.outputs.VERSION }}
         asset_content_type: application/x-tar
