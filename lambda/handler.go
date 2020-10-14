@@ -2,6 +2,8 @@ package lambda
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -44,10 +46,10 @@ const (
 
 // Handler handles incoming logger requests.
 type Handler struct {
-	ddb    DynamoDBAPI
-	sqs    SQSAPI
-	logger *zerolog.Logger
-	//debug bool
+	ddb       DynamoDBAPI
+	sqs       SQSAPI
+	logger    *zerolog.Logger
+	logreader *io.PipeReader
 }
 
 // Item - represents the application table
@@ -60,25 +62,22 @@ type Item struct {
 // NewHandler initializes and returns a new Handler.
 func NewHandler(ddb DynamoDBAPI, sqs SQSAPI) *Handler {
 
-	// Enable Zero log
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
-
-	// Handle logging level
-	loglevel := os.Getenv(envNameLogLevel)
-	switch strings.ToUpper(loglevel) {
-	case LogLevelDebug:
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	default:
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	}
+	// Initialise logging
+	logreader, logwriter := io.Pipe()
+	logger := initLogger(logwriter)
 
 	// Return handler
-	return &Handler{ddb: ddb, sqs: sqs, logger: &logger}
+	return &Handler{ddb: ddb, sqs: sqs, logger: &logger, logreader: logreader}
 }
 
 // Handle handles the logger request.
 func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
+
+	// Check we have required environment variables
+	err := checkVars()
+	if err != nil {
+		return err
+	}
 
 	// Debug log
 	h.logger.Debug().Msg("Log controller starting processing")
@@ -159,6 +158,59 @@ func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
 
 	// Return
 	return nil
+}
+
+// checkVars - checks that required variables are available
+func checkVars() error {
+
+	// Grab the lambda environment variables
+	s3bucket := os.Getenv(envNameS3Bucket)
+	s3path := os.Getenv(envNameS3BucketPath)
+	s3region := os.Getenv(envNameS3BucketRegion)
+
+	// Sanity checks
+	if s3bucket == "" {
+		fmt.Println(newErrorEnvironmentVariableProvided(envNameS3Bucket))
+		return newErrorEnvironmentVariableProvided(envNameS3Bucket)
+	}
+	if s3path == "" {
+		fmt.Println(newErrorEnvironmentVariableProvided(envNameS3BucketPath))
+		return newErrorEnvironmentVariableProvided(envNameS3BucketPath)
+	}
+	if s3region == "" {
+		fmt.Println(newErrorEnvironmentVariableProvided(envNameS3BucketRegion))
+		return newErrorEnvironmentVariableProvided(envNameS3BucketRegion)
+	}
+
+	// Return
+	return nil
+}
+
+// initLogger - initializes the Zero log logger
+func initLogger(pipe *io.PipeWriter) zerolog.Logger {
+
+	// Grab the lambda environment variables
+	loglevel := os.Getenv(envNameLogLevel)
+
+	// Configure Zero log timestamp & log level
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	switch strings.ToUpper(loglevel) {
+	case LogLevelDebug:
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	default:
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
+
+	// Create slice for handling multiple writers if required
+	var writers []io.Writer
+	writers = append(writers, pipe)
+	mw := io.MultiWriter(writers...)
+
+	// Now create the logger
+	logger := zerolog.New(mw).With().Timestamp().Logger()
+
+	// Return
+	return logger
 }
 
 // getQueueName - queries DynamoDB to retrieve the downstream queue name to use

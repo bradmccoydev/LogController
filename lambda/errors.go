@@ -1,6 +1,13 @@
 package lambda
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
+
+func newErrorEnvironmentVariableProvided(varname string) error {
+	return fmt.Errorf("The environment variable %s was not provided. Aborting", varname)
+}
 
 func newErrorMessageAttributesNil() error {
 	return errors.New("No message attributes provided with SQS message")
