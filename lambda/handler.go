@@ -2,10 +2,9 @@ package lambda
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/rs/zerolog"
@@ -20,13 +19,13 @@ const (
 	envNameLogLevel string = "LOG_LEVEL"
 
 	// Name of the Lambda environment variable for the S3 bucket to use
-	envNameS3Bucket string = "BUCKET"
+	envNameS3Bucket string = "S3_BUCKET"
 
 	// Name of the Lambda environment variable for the path in the S3 bucket to use
-	envNameS3BucketPath string = "PATH"
+	envNameS3BucketPath string = "S3_PATH"
 
 	// Name of the Lambda environment variable for the region of the S3 bucket to use
-	envNameS3BucketRegion string = "REGION"
+	envNameS3BucketRegion string = "S3_REGION"
 
 	// Name of the Log Controller SQS queue
 	logControllerQueueName string = "logging_queue.fifo"
@@ -42,14 +41,26 @@ const (
 
 	// MessageAttribAppVers - SQS message attribute that stores the application version
 	MessageAttribAppVers string = "APPLICATION_VERS"
+
+	// MessageAttribLogLevel - SQS message attribute that stores the log level
+	MessageAttribLogLevel string = "LOG_LEVEL"
+
+	// MessageAttribTimestamp - SQS message attribute that stores the timestamp
+	MessageAttribTimestamp string = "TIMESTAMP"
+
+	// MessageAttribTrackingID - SQS message attribute that stores the tracking id
+	MessageAttribTrackingID string = "TRACKING_ID"
+
+	// The S3 Bucket queue - used as default if nothing provided
+	processQueueS3 string = "S3QUEUE"
 )
 
 // Handler handles incoming logger requests.
 type Handler struct {
-	ddb       DynamoDBAPI
-	sqs       SQSAPI
-	logger    *zerolog.Logger
-	logreader *io.PipeReader
+	ddb    DynamoDBAPI
+	sqs    SQSAPI
+	s3c    S3API
+	logger *zerolog.Logger
 }
 
 // Item - represents the application table
@@ -60,27 +71,33 @@ type Item struct {
 }
 
 // NewHandler initializes and returns a new Handler.
-func NewHandler(ddb DynamoDBAPI, sqs SQSAPI) *Handler {
+func NewHandler(ddb DynamoDBAPI, s3c S3API, sqs SQSAPI) *Handler {
 
 	// Initialise logging
-	logreader, logwriter := io.Pipe()
-	logger := initLogger(logwriter)
+	logger := initLogger()
 
 	// Return handler
-	return &Handler{ddb: ddb, sqs: sqs, logger: &logger, logreader: logreader}
+	return &Handler{ddb: ddb, s3c: s3c, sqs: sqs, logger: &logger}
 }
 
 // Handle handles the logger request.
 func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
 
+	// Debug log
+	h.logger.Debug().Msg("Starting processing")
+
 	// Check we have required environment variables
-	err := checkVars()
+	err := checkVars(h)
 	if err != nil {
+
+		// Log error
+		h.logger.Error().
+			Err(err).
+			Msg("")
+
+		// Return
 		return err
 	}
-
-	// Debug log
-	h.logger.Debug().Msg("Log controller starting processing")
 
 	// What do we have to process?
 	num := len(sqsEvent.Records)
@@ -102,41 +119,33 @@ func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
 		// Debug log
 		h.logger.Debug().
 			Str("Message ID", msg.MessageId).
-			Msg("Processing message")
+			Msg("Starting message processing")
 
 		// Determine Log Processor
-		procname, err := getQueueName(h, msg)
+		procname, err := getProcessorName(h, msg)
 		if err != nil {
-
-			// Debug log
-			h.logger.Debug().
-				Err(err).
-				Msg("")
 
 			// Log details
 			h.logger.Warn().
 				Str("Message ID", msg.MessageId).
-				Msg("Unable to determine queue. Skipping further processing of this message")
+				Err(err).
+				Msg("Unable to determine processor")
 
-			// Skip from processing
+			// Ignore further processing
 			continue
 		}
 
 		// Send the message to the processor
-		err = submitMessage(h, msg, procname)
+		err = processMessage(h, msg, procname)
 		if err != nil {
-
-			// Debug log
-			h.logger.Debug().
-				Err(err).
-				Msg("Error reported")
 
 			// Log details
 			h.logger.Warn().
 				Str("Message ID", msg.MessageId).
-				Msg("Unable to submit message to queue. Skipping further processing of this message")
+				Err(err).
+				Msg("Unable to process message")
 
-			// Skip from processing
+			// Ignore further processing
 			continue
 		}
 
@@ -144,24 +153,29 @@ func (h *Handler) Handle(ctx context.Context, sqsEvent events.SQSEvent) error {
 		err = deleteMessage(h, msg)
 		if err != nil {
 
-			// Debug log
-			h.logger.Debug().
-				Err(err).
-				Msg("Error reported")
-
 			// Log details
 			h.logger.Warn().
 				Str("Message ID", msg.MessageId).
-				Msg("Unable to delete message.")
+				Err(err).
+				Msg("Unable to delete message")
+
+			// Ignore further processing
+			continue
 		}
+
+		// Debug log
+		h.logger.Debug().
+			Str("Message ID", msg.MessageId).
+			Msg("Completed message processing")
 	}
 
-	// Return
+	// Debug log
+	h.logger.Debug().Msg("Completed processing")
 	return nil
 }
 
 // checkVars - checks that required variables are available
-func checkVars() error {
+func checkVars(h *Handler) error {
 
 	// Grab the lambda environment variables
 	s3bucket := os.Getenv(envNameS3Bucket)
@@ -170,24 +184,28 @@ func checkVars() error {
 
 	// Sanity checks
 	if s3bucket == "" {
-		fmt.Println(newErrorEnvironmentVariableProvided(envNameS3Bucket))
 		return newErrorEnvironmentVariableProvided(envNameS3Bucket)
 	}
 	if s3path == "" {
-		fmt.Println(newErrorEnvironmentVariableProvided(envNameS3BucketPath))
 		return newErrorEnvironmentVariableProvided(envNameS3BucketPath)
 	}
 	if s3region == "" {
-		fmt.Println(newErrorEnvironmentVariableProvided(envNameS3BucketRegion))
 		return newErrorEnvironmentVariableProvided(envNameS3BucketRegion)
 	}
+
+	// Debug log
+	h.logger.Debug().
+		Str("S3 Region", s3region).
+		Str("S3 Bucket", s3bucket).
+		Str("S3 Path", s3path).
+		Msg("")
 
 	// Return
 	return nil
 }
 
 // initLogger - initializes the Zero log logger
-func initLogger(pipe *io.PipeWriter) zerolog.Logger {
+func initLogger() zerolog.Logger {
 
 	// Grab the lambda environment variables
 	loglevel := os.Getenv(envNameLogLevel)
@@ -201,45 +219,61 @@ func initLogger(pipe *io.PipeWriter) zerolog.Logger {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
 
-	// Create slice for handling multiple writers if required
-	var writers []io.Writer
-	writers = append(writers, pipe)
-	mw := io.MultiWriter(writers...)
-
 	// Now create the logger
-	logger := zerolog.New(mw).With().Timestamp().Logger()
+	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 
 	// Return
 	return logger
 }
 
-// getQueueName - queries DynamoDB to retrieve the downstream queue name to use
-func getQueueName(h *Handler, msg events.SQSMessage) (string, error) {
+// getMsgAttribs - extracts the app name & version attributes
+func getMsgAttribs(msg events.SQSMessage) (string, string, error) {
 
 	// Grab the message attributes
 	msgattribs := msg.MessageAttributes
 	if msgattribs == nil {
-		return "", newErrorMessageAttributesNil()
+		return "", "", newErrorMessageAttributesNil()
 	}
 
 	// Get the application name
 	val, found := msgattribs[MessageAttribAppName]
 	if !found {
-		return "", newErrorMessageAttributesAppNameEmpty()
+		return "", "", newErrorMessageAttributesAppNameEmpty()
 	}
 	logapp := *val.StringValue
 	if logapp == "" {
-		return "", newErrorMessageAttributesAppNameEmpty()
+		return "", "", newErrorMessageAttributesAppNameEmpty()
 	}
 
 	// Get the application version
 	val, found = msgattribs[MessageAttribAppVers]
 	if !found {
-		return "", newErrorMessageAttributesAppVersionEmpty()
+		return "", "", newErrorMessageAttributesAppVersionEmpty()
 	}
 	logvers := *val.StringValue
 	if logvers == "" {
-		return "", newErrorMessageAttributesAppVersionEmpty()
+		return "", "", newErrorMessageAttributesAppVersionEmpty()
+	}
+
+	// Return
+	return logapp, logvers, nil
+}
+
+// getProcessorName - queries DynamoDB to retrieve the name of the processor to use
+func getProcessorName(h *Handler, msg events.SQSMessage) (string, error) {
+
+	// Grab the app name & version from
+	// the SQS message attributes
+	logapp, logvers, err := getMsgAttribs(msg)
+	if err != nil {
+
+		// Debug log
+		h.logger.Debug().
+			Str("Message ID", msg.MessageId).
+			Err(err).
+			Msg("Defaulting the S3 queue")
+
+		return processQueueS3, nil
 	}
 
 	// Debug log
@@ -259,21 +293,64 @@ func getQueueName(h *Handler, msg events.SQSMessage) (string, error) {
 	// Get the processor queue name
 	qname := item.Loghandler
 	if qname == "" {
-		return "", newErrorUnableToFetchProcQueueName()
+
+		// Debug log
+		h.logger.Debug().
+			Str("Message ID", msg.MessageId).
+			Err(newErrorUnableToFetchProcQueueName()).
+			Msg("Defaulting the S3 queue")
+
+		return processQueueS3, nil
 	}
 
 	// Debug log
 	h.logger.Debug().
 		Str("Message ID", msg.MessageId).
 		Str("Queue name", qname).
-		Msg("Retrieved Log processor queue name")
+		Msg("Retrieved Log processor queue name from application table")
 
 	// Return
 	return qname, nil
 }
 
-// submitMessage - publishes a message to the log processor queue
-func submitMessage(h *Handler, msg events.SQSMessage, queue string) error {
+// processMessage - processes the log message
+func processMessage(h *Handler, msg events.SQSMessage, queue string) error {
+
+	// Submit to S3 if using that for processing
+	if queue == processQueueS3 {
+		return s3Processor(h, msg)
+	}
+
+	// Otherwise submit to SQS
+	return sqsProcessor(h, msg, queue)
+}
+
+// s3Processor - saves the log message to S3
+func s3Processor(h *Handler, msg events.SQSMessage) error {
+
+	// Get the S3 bucket details
+	s3bucket := os.Getenv(envNameS3Bucket)
+	s3path := os.Getenv(envNameS3BucketPath)
+	s3region := os.Getenv(envNameS3BucketRegion)
+
+	// Build S3 Key
+	year, month, day := time.Now().Date()
+	yyyy := string(year)
+	mm := string(int(month))
+	dd := string(day)
+	s3key := s3path + "/year=" + yyyy + "/month=" + mm + "/day=" + dd
+
+	// Convert the SQS message to parquet format
+	buffer, size := convertToParquet(msg)
+
+	// Upload to S3
+	s3c := NewS3(h.s3c)
+	err := s3c.performPut(s3region, s3bucket, s3key, buffer, size)
+	return err
+}
+
+// sqsProcessor - submits the log message to the processor SQS queue
+func sqsProcessor(h *Handler, msg events.SQSMessage, queue string) error {
 
 	// Get the queue url
 	sqsc := NewSQS(h.sqs)

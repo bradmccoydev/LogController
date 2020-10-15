@@ -21,6 +21,18 @@ func newErrorMessageAttributesAppVersionEmpty() error {
 	return errors.New("No application version message attribute provided")
 }
 
+func newErrorMessageAttributesLogLevelEmpty() error {
+	return errors.New("No log level message attribute provided")
+}
+
+func newErrorMessageAttributesTimestampEmpty() error {
+	return errors.New("No timestamp message attribute provided")
+}
+
+func newErrorMessageAttributesTrackingIDEmpty() error {
+	return errors.New("No tracking id message attribute provided")
+}
+
 func newErrorUnableToFindAppVersion() error {
 	return errors.New("Unable to find a matching application version")
 }
