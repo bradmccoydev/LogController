@@ -1,6 +1,13 @@
 package lambda
 
-import "github.com/aws/aws-lambda-go/events"
+import (
+	"bufio"
+	"bytes"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/xitongsys/parquet-go/parquet"
+	"github.com/xitongsys/parquet-go/writer"
+)
 
 // LogItem represents a log message
 type LogItem struct {
@@ -14,65 +21,50 @@ type LogItem struct {
 }
 
 // convertToParquet - converts the SQS message into parquet
-func convertToParquet(msg events.SQSMessage) ([]byte, int, error) {
-
-	// Grab the message attributes
-	msgattribs := msg.MessageAttributes
-	if msgattribs == nil {
-		return nil, 0, newErrorMessageAttributesNil()
-	}
+func convertToParquet(msg events.SQSMessage) ([]byte, int64, error) {
 
 	// Get the application name
-	val, found := msgattribs[MessageAttribAppName]
-	if !found {
-		return nil, 0, newErrorMessageAttributesAppNameEmpty()
-	}
-	logapp := *val.StringValue
-	if logapp == "" {
-		return nil, 0, newErrorMessageAttributesAppNameEmpty()
+	logapp, err := getMsgAttrib(msg, MessageAttribAppName)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	// Get the application version
-	val, found = msgattribs[MessageAttribAppVers]
-	if !found {
-		return nil, 0, newErrorMessageAttributesAppVersionEmpty()
-	}
-	logvers := *val.StringValue
-	if logvers == "" {
-		return nil, 0, newErrorMessageAttributesAppVersionEmpty()
+	logvers, err := getMsgAttrib(msg, MessageAttribAppVers)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	// Get the log level
-	val, found = msgattribs[MessageAttribLogLevel]
-	if !found {
-		return nil, 0, newErrorMessageAttributesLogLevelEmpty()
-	}
-	loglevel := *val.StringValue
-	if loglevel == "" {
-		return nil, 0, newErrorMessageAttributesLogLevelEmpty()
+	loglevel, err := getMsgAttrib(msg, MessageAttribLogLevel)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	// Get the timestamp
-	val, found = msgattribs[MessageAttribTimestamp]
-	if !found {
-		return nil, 0, newErrorMessageAttributesTimestampEmpty()
-	}
-	logtstamp := *val.StringValue
-	if logtstamp == "" {
-		return nil, 0, newErrorMessageAttributesTimestampEmpty()
+	logtstamp, err := getMsgAttrib(msg, MessageAttribTimestamp)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	// Get the tracking id
-	val, found = msgattribs[MessageAttribTrackingID]
-	if !found {
-		return nil, 0, newErrorMessageAttributesTrackingIDEmpty()
-	}
-	logtrackingid := *val.StringValue
-	if logtrackingid == "" {
-		return nil, 0, newErrorMessageAttributesTrackingIDEmpty()
+	logtrackingid, err := getMsgAttrib(msg, MessageAttribTrackingID)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	// Massage the message into the structure
+	// Create a parquet writer
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+	pw, err := writer.NewParquetWriterFromWriter(w, new(LogItem), 1)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Set compression
+	pw.CompressionType = parquet.CompressionCodec_GZIP
+
+	// Write the data
 	l := &LogItem{
 		Time:        logtstamp,
 		TrackingID:  logtrackingid,
@@ -81,6 +73,16 @@ func convertToParquet(msg events.SQSMessage) ([]byte, int, error) {
 		Application: logapp,
 		Version:     logvers,
 		Message:     msg.Body,
+	}
+	err = pw.Write(l)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Close the parquet writer
+	err = pw.WriteStop()
+	if err != nil {
+		return nil, 0, err
 	}
 
 	// Return

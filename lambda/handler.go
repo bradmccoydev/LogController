@@ -3,56 +3,12 @@ package lambda
 import (
 	"context"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/rs/zerolog"
-)
-
-// Constants
-const (
-	// Name of the "Application" table in DynamoDB
-	applicationTableName string = "application"
-
-	// Name of the Lambda environment variable for logging level
-	envNameLogLevel string = "LOG_LEVEL"
-
-	// Name of the Lambda environment variable for the S3 bucket to use
-	envNameS3Bucket string = "S3_BUCKET"
-
-	// Name of the Lambda environment variable for the path in the S3 bucket to use
-	envNameS3BucketPath string = "S3_PATH"
-
-	// Name of the Lambda environment variable for the region of the S3 bucket to use
-	envNameS3BucketRegion string = "S3_REGION"
-
-	// Name of the Log Controller SQS queue
-	logControllerQueueName string = "logging_queue.fifo"
-
-	// LogLevelDebug defines the debug log level
-	LogLevelDebug string = "DEBUG"
-
-	// LogLevelInfo defines the info log level
-	LogLevelInfo string = "INFO"
-
-	// MessageAttribAppName - SQS message attribute that stores the application
-	MessageAttribAppName string = "APPLICATION_NAME"
-
-	// MessageAttribAppVers - SQS message attribute that stores the application version
-	MessageAttribAppVers string = "APPLICATION_VERS"
-
-	// MessageAttribLogLevel - SQS message attribute that stores the log level
-	MessageAttribLogLevel string = "LOG_LEVEL"
-
-	// MessageAttribTimestamp - SQS message attribute that stores the timestamp
-	MessageAttribTimestamp string = "TIMESTAMP"
-
-	// MessageAttribTrackingID - SQS message attribute that stores the tracking id
-	MessageAttribTrackingID string = "TRACKING_ID"
-
-	// The S3 Bucket queue - used as default if nothing provided
-	processQueueS3 string = "S3QUEUE"
 )
 
 // Handler handles incoming logger requests.
@@ -226,45 +182,47 @@ func initLogger() zerolog.Logger {
 	return logger
 }
 
-// getMsgAttribs - extracts the app name & version attributes
-func getMsgAttribs(msg events.SQSMessage) (string, string, error) {
+// getMsgAttribs - extracts the specified message attribute value
+func getMsgAttrib(msg events.SQSMessage, key string) (string, error) {
 
 	// Grab the message attributes
 	msgattribs := msg.MessageAttributes
 	if msgattribs == nil {
-		return "", "", newErrorMessageAttributesNil()
+		return "", newErrorMessageAttributesNil()
 	}
 
-	// Get the application name
+	// Get the attribute
 	val, found := msgattribs[MessageAttribAppName]
 	if !found {
-		return "", "", newErrorMessageAttributesAppNameEmpty()
+		return "", newErrorMessageAttributeMissing(key)
 	}
-	logapp := *val.StringValue
-	if logapp == "" {
-		return "", "", newErrorMessageAttributesAppNameEmpty()
-	}
-
-	// Get the application version
-	val, found = msgattribs[MessageAttribAppVers]
-	if !found {
-		return "", "", newErrorMessageAttributesAppVersionEmpty()
-	}
-	logvers := *val.StringValue
-	if logvers == "" {
-		return "", "", newErrorMessageAttributesAppVersionEmpty()
+	value := *val.StringValue
+	if value == "" {
+		return "", newErrorMessageAttributeEmpty(key)
 	}
 
 	// Return
-	return logapp, logvers, nil
+	return value, nil
 }
 
 // getProcessorName - queries DynamoDB to retrieve the name of the processor to use
 func getProcessorName(h *Handler, msg events.SQSMessage) (string, error) {
 
-	// Grab the app name & version from
-	// the SQS message attributes
-	logapp, logvers, err := getMsgAttribs(msg)
+	// Grab the app name
+	logapp, err := getMsgAttrib(msg, MessageAttribAppName)
+	if err != nil {
+
+		// Debug log
+		h.logger.Debug().
+			Str("Message ID", msg.MessageId).
+			Err(err).
+			Msg("Defaulting the S3 queue")
+
+		return processQueueS3, nil
+	}
+
+	// Grab the app version
+	logvers, err := getMsgAttrib(msg, MessageAttribAppVers)
 	if err != nil {
 
 		// Debug log
@@ -335,17 +293,17 @@ func s3Processor(h *Handler, msg events.SQSMessage) error {
 
 	// Build S3 Key
 	year, month, day := time.Now().Date()
-	yyyy := string(year)
-	mm := string(int(month))
-	dd := string(day)
+	yyyy := strconv.Itoa(year)
+	mm := strconv.Itoa(int(month))
+	dd := strconv.Itoa(day)
 	s3key := s3path + "/year=" + yyyy + "/month=" + mm + "/day=" + dd
 
 	// Convert the SQS message to parquet format
-	buffer, size := convertToParquet(msg)
+	buffer, size, err := convertToParquet(msg)
 
 	// Upload to S3
 	s3c := NewS3(h.s3c)
-	err := s3c.performPut(s3region, s3bucket, s3key, buffer, size)
+	err = s3c.performPut(s3region, s3bucket, s3key, buffer, size)
 	return err
 }
 

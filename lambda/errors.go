@@ -13,24 +13,12 @@ func newErrorMessageAttributesNil() error {
 	return errors.New("No message attributes provided with SQS message")
 }
 
-func newErrorMessageAttributesAppNameEmpty() error {
-	return errors.New("No application name message attribute provided")
+func newErrorMessageAttributeMissing(attribname string) error {
+	return fmt.Errorf("The message attribute %s was not provided", attribname)
 }
 
-func newErrorMessageAttributesAppVersionEmpty() error {
-	return errors.New("No application version message attribute provided")
-}
-
-func newErrorMessageAttributesLogLevelEmpty() error {
-	return errors.New("No log level message attribute provided")
-}
-
-func newErrorMessageAttributesTimestampEmpty() error {
-	return errors.New("No timestamp message attribute provided")
-}
-
-func newErrorMessageAttributesTrackingIDEmpty() error {
-	return errors.New("No tracking id message attribute provided")
+func newErrorMessageAttributeEmpty(attribname string) error {
+	return fmt.Errorf("The message attribute %s did not have a value", attribname)
 }
 
 func newErrorUnableToFindAppVersion() error {
