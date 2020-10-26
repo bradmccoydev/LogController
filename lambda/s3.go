@@ -23,7 +23,7 @@ type S3Handler struct {
 	s3 S3API
 }
 
-// performPut wrappers the DynamoDB GetItem request
+// performPut wrappers the S3 PutObject request
 func (s *S3Handler) performPut(region string, bucket string, key string, buffer []byte, size int64) error {
 
 	// Build the put params

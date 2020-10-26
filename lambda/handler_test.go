@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	loglambda "github.com/bradmccoydev/LogController/lambda"
 )
@@ -32,6 +33,18 @@ type mockDynamoDB struct {
 // Mock DynamoDB GetItem
 func (m *mockDynamoDB) GetItem(*dynamodb.GetItemInput) (*dynamodb.GetItemOutput, error) {
 	return m.getOut, m.err
+}
+
+// Mock S3 structure
+type mockS3 struct {
+	putIn  *s3.PutObjectInput
+	putOut *s3.PutObjectOutput
+	err    error
+}
+
+// Mock S3 PutObject
+func (m *mockS3) PutObject(input *s3.PutObjectInput) (*s3.PutObjectOutput, error) {
+	return m.putOut, m.err
 }
 
 // Mock SQS structure
@@ -74,8 +87,8 @@ func TestHandler(t *testing.T) {
 	// Message without attributes
 	recordNoAttribs := []events.SQSMessage{
 		events.SQSMessage{
-			MessageId:     "12345",
-			ReceiptHandle: "Fred12345",
+			MessageId:     "1",
+			ReceiptHandle: "Fred1",
 			Body:          "blah blah blah",
 		},
 	}
@@ -89,8 +102,8 @@ func TestHandler(t *testing.T) {
 	attribs[loglambda.MessageAttribAppVers] = versAttrib
 	recordWithAttribs := []events.SQSMessage{
 		events.SQSMessage{
-			MessageId:         "12345",
-			ReceiptHandle:     "Fred12345",
+			MessageId:         "2",
+			ReceiptHandle:     "Fred2",
 			Body:              "blah blah blah",
 			MessageAttributes: attribs,
 		},
@@ -125,6 +138,7 @@ func TestHandler(t *testing.T) {
 		request       events.SQSEvent
 		sqs           *mockSQS
 		ddb           *mockDynamoDB
+		s3c           *mockS3
 		errorExpected bool
 	}{
 		{
@@ -132,6 +146,7 @@ func TestHandler(t *testing.T) {
 			request:       events.SQSEvent{},
 			sqs:           &mockSQS{},
 			ddb:           &mockDynamoDB{},
+			s3c:           &mockS3{},
 			errorExpected: false,
 		},
 		{
@@ -139,6 +154,7 @@ func TestHandler(t *testing.T) {
 			request:       events.SQSEvent{Records: recordNoAttribs},
 			sqs:           &mockSQS{},
 			ddb:           &mockDynamoDB{},
+			s3c:           &mockS3{},
 			errorExpected: false,
 		},
 		{
@@ -146,6 +162,7 @@ func TestHandler(t *testing.T) {
 			request:       events.SQSEvent{Records: recordWithAttribs},
 			sqs:           &mockSQS{},
 			ddb:           &mockDynamoDB{getOut: &dynamodb.GetItemOutput{}},
+			s3c:           &mockS3{},
 			errorExpected: false,
 		},
 		{
@@ -153,6 +170,7 @@ func TestHandler(t *testing.T) {
 			request:       events.SQSEvent{Records: recordWithAttribs},
 			sqs:           &mockSQS{},
 			ddb:           &mockDynamoDB{getOut: &dynamodb.GetItemOutput{Item: respNoQueue}},
+			s3c:           &mockS3{},
 			errorExpected: false,
 		},
 		{
@@ -160,6 +178,7 @@ func TestHandler(t *testing.T) {
 			request:       events.SQSEvent{Records: recordWithAttribs},
 			sqs:           &mockSQS{getUrlOut: &sqs.GetQueueUrlOutput{QueueUrl: aws.String("someurl")}},
 			ddb:           &mockDynamoDB{getOut: &dynamodb.GetItemOutput{Item: respValid}},
+			s3c:           &mockS3{},
 			errorExpected: false,
 		},
 	}
@@ -170,7 +189,7 @@ func TestHandler(t *testing.T) {
 		t.Run(test.scenario, func(t *testing.T) {
 
 			// Run the test
-			h := loglambda.NewHandler(test.ddb, test.sqs)
+			h := loglambda.NewHandler(test.ddb, test.s3c, test.sqs)
 			err := h.Handle(context.Background(), test.request)
 			if test.errorExpected {
 				hasError(t, err)

@@ -276,11 +276,13 @@ func processMessage(h *Handler, msg events.SQSMessage, queue string) error {
 
 	// Submit to S3 if using that for processing
 	if queue == processQueueS3 {
-		return s3Processor(h, msg)
+		err := s3Processor(h, msg)
+		return err
 	}
 
 	// Otherwise submit to SQS
-	return sqsProcessor(h, msg, queue)
+	err := sqsProcessor(h, msg, queue)
+	return err
 }
 
 // s3Processor - saves the log message to S3
@@ -300,6 +302,9 @@ func s3Processor(h *Handler, msg events.SQSMessage) error {
 
 	// Convert the SQS message to parquet format
 	buffer, size, err := convertToParquet(msg)
+	if err != nil {
+		return err
+	}
 
 	// Upload to S3
 	s3c := NewS3(h.s3c)
